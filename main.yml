@@ -125,7 +125,7 @@
 
     - name: Build production image and push it to Docker registry
       docker_image:
-        name: "{{ app_image }}"
+        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}/{{ app_image }}"
         source: build
         build:
           path: "{{ repo_path }}"
@@ -159,7 +159,7 @@
     - name: Run app container at production server
       docker_container:
         name: run
-        image: "{{ app_image }}"
+        image: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}/{{ app_image }}"
         ports: "8080:8080"
         recreate: yes
 
