@@ -89,6 +89,9 @@
     app_image: myboxfuse:tomcat
     file_to_change: src/main/webapp/index.jsp
   tasks:
+    - name: Debug
+      fail:
+        msg: "{{hostvars.localhost.repo_password}}"
     - name: Clone git repo
       git: repo={{ repo }} dest={{ repo_path }} force=yes
 
