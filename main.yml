@@ -121,7 +121,7 @@
       docker_login:
         registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
-        password: "{{ repo_password }}"
+        password: "{{ hostvars.localhost.repo_password }}"
 
     - name: Build production image and push it to Docker registry
       docker_image:
@@ -154,7 +154,7 @@
       docker_login:
         registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
-        password: "{{ repo_password }}"
+        password: "{{ hostvars.localhost.repo_password }}"
 
     - name: Run app container at production server
       docker_container:
