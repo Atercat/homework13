@@ -51,10 +51,6 @@
         ansible_ssh_private_key_file: ~/.ssh/ec2.pem
       loop: "{{ runner.instances }}"
 
-    - name: Get the current caller identity facts
-      aws_caller_facts:
-      register: aws_facts
-
     - name: Ensure the repository is present
       ecs_ecr: name=myrepo
       register: repo_facts
