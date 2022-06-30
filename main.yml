@@ -63,15 +63,15 @@
   hosts:
     - build
     - run
-  become: true
+  become: yes
   tasks:
     - name: Ensure Docker is installed
       apt:
         name:
-          - docker
+          - docker.io
           - python-docker
         state: present
-        update_cache: true
+        update_cache: yes
 
     - name: Ensure Docker service is running
       service:
@@ -80,7 +80,7 @@
 
 - name: Build the App
   hosts: build
-  become: true
+  become: yes
   vars:
     repo: https://github.com/boxfuse/boxfuse-sample-java-war-hello.git
     repo_path: /var/repo
@@ -90,7 +90,7 @@
     file_to_change: src/main/webapp/index.jsp
   tasks:
     - name: Clone git repo
-      git: repo={{ repo }} dest={{ repo_path }} force=true
+      git: repo={{ repo }} dest={{ repo_path }} force=yes
 
     - name: LineInFile example
       lineinfile:
@@ -108,7 +108,7 @@
         volumes:
           "{{ repo_path }}:/git"
         command: mvn -f /git/pom.xml clean package
-        restart: true
+        restart: yes
         detach: no
 
     - name: Ensure newly built artifact is present
@@ -131,12 +131,12 @@
           path: "{{ repo_path }}"
           args:
             artifact: target/{{ app }}.war
-        push: true
+        push: yes
       notify: Remove image
 
 - name: Run the App
   hosts: run
-  become: true
+  become: yes
   vars:
     - app_image: myboxfuse:tomcat
   tasks:
@@ -161,7 +161,7 @@
         name: run
         image: "{{ app_image }}"
         ports: "8080:8080"
-        recreate: true
+        recreate: yes
 
     # Print the app url
     - debug:
