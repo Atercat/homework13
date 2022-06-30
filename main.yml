@@ -1,1 +1,171 @@
 ---
+- name: Provision EC2 nodes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Provision an EC2 builder node
+      ec2_instance:
+        name: Builder
+        state: started
+        wait: true
+        key_name: homework
+        instance_type: t3.micro
+        security_group: SSHAccess
+        network:
+          assign_public_ip: true
+        image_id: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
+        tags:
+          Environment: build
+      register: builder
+
+    - name: Add builder instance public IPs to the build group
+      add_host:
+        hostname: "{{ item.public_ip_address }}"
+        groups: build
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ~/.ssh/ec2.pem
+      loop: "{{ builder.instances }}"
+
+    - name: Provision an EC2 runner node
+      ec2_instance:
+        name: Runner
+        state: started
+        wait: true
+        key_name: homework
+        instance_type: t3.micro
+        security_groups:
+          - SSHAccess
+          - Tomcat
+        network:
+          assign_public_ip: true
+        image_id: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
+        tags:
+          Environment: run
+      register: runner
+
+    - name: Add runner instance public IPs to the run group
+      add_host:
+        hostname: "{{ item.public_ip_address }}"
+        groups: run
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ~/.ssh/ec2.pem
+      loop: "{{ runner.instances }}"
+
+    - name: Get the current caller identity facts
+      aws_caller_facts:
+      register: aws_facts
+
+    - name: Ensure the repository is present
+      ecs_ecr: name=myrepo
+      register: repo_facts
+
+    - name: Get ECR password
+      command: aws ecr get-login-password
+      register: repo_password
+
+- name: Prepare nodes
+  hosts:
+    - build
+    - run
+  become: yes
+  tasks:
+    - name: Ensure Docker is installed
+      apt:
+        name:
+          - docker.io
+          - python-docker
+        state: present
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+
+- name: Build the App
+  hosts: build
+  become: yes
+  vars:
+    repo: https://github.com/boxfuse/boxfuse-sample-java-war-hello.git
+    repo_path: /var/repo
+    app: hello-1.0
+    war_path: "{{ repo_path }}/target/{{ app }}.war"
+    app_image: myboxfuse:tomcat
+    file_to_change: src/main/webapp/index.jsp
+  tasks:
+    - name: Clone git repo
+      git: repo={{ repo }} dest={{ repo_path }} force=yes
+
+    - name: LineInFile example
+      lineinfile:
+        path: "{{ repo_path }}/{{ file_to_change }}"
+        regexp: "<h1>(.*)</h1>"
+        line: "<h1>Built on {{ ansible_lsb.description }} with Jenkins</h1>"
+
+    - name: Ensure previously built artifact is absent
+      file: path={{ war_path }} state=absent
+
+    - name: Start Maven container and build artifact
+      docker_container:
+        name: builder
+        image: public.ecr.aws/docker/library/maven:3.6-openjdk-8
+        volumes:
+          "{{ repo_path }}:/git"
+        command: mvn -f /git/pom.xml clean package
+        restart: yes
+        detach: no
+
+    - name: Ensure newly built artifact is present
+      file: path={{ war_path }}
+
+    - name: Copy Dockerfile to Build-node
+      copy: src=files/Dockerfile dest={{ repo_path }}
+
+    - name: Login to Docker registry
+      docker_login:
+        registry: "{{ repo_facts.repository.repositoryUri }}"
+        username: AWS
+        password: "{{ repo_password }}"
+
+    - name: Build production image and push it to Docker registry
+      docker_image:
+        name: "{{ app_image }}"
+        source: build
+        build:
+          path: "{{ repo_path }}"
+          args:
+            artifact: target/{{ app }}.war
+        push: yes
+      notify: Remove image
+
+- name: Run the App
+  hosts: run
+  become: yes
+  vars:
+    - app_image: myboxfuse:tomcat
+  tasks:
+    - name: Remove old container
+      docker_container:
+        name: run
+        state: absent
+
+    - name: Remove old image
+      docker_image:
+        name: "{{ app_image }}"
+        state: absent
+
+    - name: Login to Docker registry
+      docker_login:
+        registry: "{{ repo_facts.repository.repositoryUri }}"
+        username: AWS
+        password: "{{ repo_password }}"
+
+    - name: Run app container at production server
+      docker_container:
+        name: run
+        image: "{{ app_image }}"
+        ports: "8080:8080"
+        recreate: yes
+
+    # Print the app url
+    - debug:
+        msg: "http://{{inventory_hostname}}:8080/hello-1.0"
