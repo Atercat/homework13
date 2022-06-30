@@ -119,7 +119,7 @@
 
     - name: Login to Docker registry
       docker_login:
-        registry: "{{ repo_facts.repository.repositoryUri }}"
+        registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
         password: "{{ repo_password }}"
 
@@ -152,7 +152,7 @@
 
     - name: Login to Docker registry
       docker_login:
-        registry: "{{ repo_facts.repository.repositoryUri }}"
+        registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
         password: "{{ repo_password }}"
 
