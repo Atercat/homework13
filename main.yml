@@ -135,7 +135,6 @@
           args:
             artifact: target/{{ app }}.war
         push: yes
-      notify: Remove image
 
 - name: Run the App
   hosts: run
