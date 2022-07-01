@@ -4,6 +4,9 @@
   gather_facts: false
   vars:
     ami: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
+    app_name: myboxfuse
+    user_name: ubuntu
+    key_file: "~/.ssh/{{ app_name }}.pem"
   tasks:
     - name: Provision an EC2 builder node
       ec2_instance:
@@ -23,11 +26,10 @@
 
     - name: Add builder instance public IPs to the build group
       add_host:
-        hostname: "{{ item.public_ip_address }}"
+        hostname: "{{ builder.public_ip_address[0] }}"
         groups: build
-        ansible_user: ubuntu
-        ansible_ssh_private_key_file: ~/.ssh/ec2.pem
-      loop: "{{ builder.instances }}"
+        ansible_user: "{{ user_name }}"
+        ansible_ssh_private_key_file: "{{ key_file }}"
 
     - name: Provision an EC2 runner node
       ec2_instance:
@@ -49,11 +51,10 @@
 
     - name: Add runner instance public IPs to the run group
       add_host:
-        hostname: "{{ item.public_ip_address }}"
+        hostname: "{{ runner.public_ip_address[0] }}"
         groups: run
-        ansible_user: ubuntu
-        ansible_ssh_private_key_file: ~/.ssh/ec2.pem
-      loop: "{{ runner.instances }}"
+        ansible_user: "{{ user_name }}"
+        ansible_ssh_private_key_file: "{{ key_file }}"
 
     - name: Ensure the repository is present
       ecs_ecr: name=myboxfuse
