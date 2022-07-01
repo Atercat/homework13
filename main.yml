@@ -1,5 +1,5 @@
 ---
-- name: Provision EC2 nodes
+- name: Provision AWS infrastructure
   hosts: localhost
   gather_facts: false
   vars:
@@ -8,15 +8,41 @@
     user_name: ubuntu
     key_file: "~/.ssh/{{ app_name }}.pem"
   tasks:
+    - name: Create SSH key pair
+      ec2_key: "name={{ app_name }}"
+      register: ec2_key_output
+
+    - name: Save SSH private key
+      copy:
+        content: "{{ ec2_key_output.key.private_key }}"
+        dest: "{{ key_file }}"
+        mode: 0600
+        
+    - name: Create SSH security group
+      ec2_group:
+        name: "{{ app_name }}-ssh"
+        rules:
+          - proto: tcp
+            ports: 22
+            cidr_ip: 0.0.0.0/0
+        
+    - name: Create Tomcat security group
+      ec2_group:
+        name: "{{ app_name }}-tomcat"
+        rules:
+          - proto: tcp
+            ports: 8080
+            cidr_ip: 0.0.0.0/0
+
     - name: Provision an EC2 builder node
       ec2_instance:
         name: Builder
         state: started
         instance_role: ecr_admin
         wait: true
-        key_name: homework
+        key_name: "{{ app_name }}"
         instance_type: t3.micro
-        security_group: SSHAccess
+        security_group: "{{ app_name }}-ssh"
         network:
           assign_public_ip: true
         image_id: "{{ ami }}"
@@ -37,11 +63,11 @@
         state: started
         instance_role: ecr_admin
         wait: true
-        key_name: homework
+        key_name: "{{ app_name }}"
         instance_type: t3.micro
         security_groups:
-          - SSHAccess
-          - Tomcat
+          - "{{ app_name }}-ssh"
+          - "{{ app_name }}-tomcat"
         network:
           assign_public_ip: true
         image_id: "{{ ami }}"
@@ -57,7 +83,7 @@
         ansible_ssh_private_key_file: "{{ key_file }}"
 
     - name: Ensure the repository is present
-      ecs_ecr: name=myboxfuse
+      ecs_ecr: "name={{ app_name }}"
       register: repo_facts
 
     - name: Get ECR password
@@ -91,7 +117,6 @@
     repo_path: /var/repo
     app: hello-1.0
     war_path: "{{ repo_path }}/target/{{ app }}.war"
-    app_image: myboxfuse:tomcat
     file_to_change: src/main/webapp/index.jsp
   tasks:
     - name: Clone git repo
@@ -131,7 +156,7 @@
 
     - name: Build production image and push it to Docker registry
       docker_image:
-        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}:tomcat"
+        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         source: build
         build:
           path: "{{ repo_path }}"
@@ -142,8 +167,6 @@
 - name: Run the App
   hosts: run
   become: yes
-  vars:
-    - app_image: myboxfuse:tomcat
   tasks:
     - name: Remove old container
       docker_container:
@@ -165,7 +188,7 @@
     - name: Run app container at production server
       docker_container:
         name: run
-        image: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}:tomcat"
+        image: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         ports: "8080:8080"
         recreate: yes
 
