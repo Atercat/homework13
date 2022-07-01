@@ -53,12 +53,9 @@
           Environment: build
       register: builder
 
-    - fail:
-        msg: "{{ builder }}"
-
     - name: Add builder instance public IPs to the build group
       add_host:
-        hostname: "{{ builder.public_ip_address[0] }}"
+        hostname: "{{ builder[0].public_ip_address }}"
         groups: build
         ansible_user: "{{ user_name }}"
         ansible_ssh_private_key_file: "{{ key_file }}"
@@ -83,7 +80,7 @@
 
     - name: Add runner instance public IPs to the run group
       add_host:
-        hostname: "{{ runner.public_ip_address[0] }}"
+        hostname: "{{ runner[0].public_ip_address }}"
         groups: run
         ansible_user: "{{ user_name }}"
         ansible_ssh_private_key_file: "{{ key_file }}"
