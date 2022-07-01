@@ -2,6 +2,8 @@
 - name: Provision EC2 nodes
   hosts: localhost
   gather_facts: false
+  vars:
+    ami: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
   tasks:
     - name: Provision an EC2 builder node
       ec2_instance:
@@ -14,7 +16,7 @@
         security_group: SSHAccess
         network:
           assign_public_ip: true
-        image_id: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
+        image_id: "{{ ami }}"
         tags:
           Environment: build
       register: builder
@@ -40,7 +42,7 @@
           - Tomcat
         network:
           assign_public_ip: true
-        image_id: ami-0440e5026412ff23f # Ubuntu22.04@eu-north-1
+        image_id: "{{ ami }}"
         tags:
           Environment: run
       register: runner
