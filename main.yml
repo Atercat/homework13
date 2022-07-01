@@ -150,14 +150,14 @@
     - name: Copy Dockerfile to Build-node
       copy: src=files/Dockerfile dest={{ repo_path }}
 
-    - name: Login to Docker registry
+    - name: Login to ECR
       docker_login:
         registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
         password: "{{ hostvars.localhost.repo_password.stdout }}"
         reauthorize: true
 
-    - name: Build production image and push it to Docker registry
+    - name: Build production image and push it to ECR
       docker_image:
         name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         source: build
@@ -178,10 +178,10 @@
 
     - name: Remove old image
       docker_image:
-        name: "{{ app_image }}"
+        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         state: absent
 
-    - name: Login to Docker registry
+    - name: Login to ECR
       docker_login:
         registry: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}"
         username: AWS
