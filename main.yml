@@ -54,7 +54,7 @@
       loop: "{{ runner.instances }}"
 
     - name: Ensure the repository is present
-      ecs_ecr: name=myrepo
+      ecs_ecr: name=myboxfuse
       register: repo_facts
 
     - name: Get ECR password
@@ -128,7 +128,7 @@
 
     - name: Build production image and push it to Docker registry
       docker_image:
-        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}/{{ app_image }}"
+        name: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}:tomcat"
         source: build
         build:
           path: "{{ repo_path }}"
@@ -163,7 +163,7 @@
     - name: Run app container at production server
       docker_container:
         name: run
-        image: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}/{{ app_image }}"
+        image: "{{ hostvars.localhost.repo_facts.repository.repositoryUri }}:tomcat"
         ports: "8080:8080"
         recreate: yes
 
