@@ -53,6 +53,9 @@
           Environment: build
       register: builder
 
+    - fail:
+        msg: "{{ builder }}"
+
     - name: Add builder instance public IPs to the build group
       add_host:
         hostname: "{{ builder.public_ip_address[0] }}"
