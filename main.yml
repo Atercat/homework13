@@ -17,10 +17,12 @@
         content: "{{ ec2_key_output.key.private_key }}"
         dest: "{{ key_file }}"
         mode: 0600
+      when: ec2_key_output.changed
         
     - name: Create SSH security group
       ec2_group:
         name: "{{ app_name }}-ssh"
+        description: Allow SSH
         rules:
           - proto: tcp
             ports: 22
@@ -29,6 +31,7 @@
     - name: Create Tomcat security group
       ec2_group:
         name: "{{ app_name }}-tomcat"
+        description: Allow Tomcat
         rules:
           - proto: tcp
             ports: 8080
